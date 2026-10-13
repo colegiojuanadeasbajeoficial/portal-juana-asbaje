@@ -692,7 +692,7 @@ export default function Home() {
 
           <div className="text-sm leading-7 text-slate-400 sm:text-right">
             <p>Galeana #35, Col. Centro, Tuxpan, Veracruz.</p>
-            <p>© {new Date().getFullYear()} Colegio Juana de Asbaje.</p>
+            <p>© 2026 Colegio Juana de Asbaje.</p>
             <p>Portal institucional en desarrollo.</p>
           </div>
         </div>
