@@ -2,21 +2,13 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useState } from "react";
-
-type Solicitud = {
-  nombre: string;
-  correo: string;
-  telefono: string;
-  nivel: string;
-  mensaje: string;
-  fecha: string;
-};
+import emailjs from "@emailjs/browser";
+import { useState, type FormEvent } from "react";
 
 const niveles = ["Preescolar", "Primaria"];
 
 const oferta = [
-    {
+  {
     numero: "01",
     nombre: "Preescolar",
     edad: "Aprender jugando",
@@ -49,15 +41,13 @@ const beneficios = [
   "Formación en idiomas y tecnología",
   "Actividades artísticas y deportivas",
   "Ambiente inclusivo y respeto entre compañeros",
-  "Apoyo psicológico",
 ];
 
 export default function Home() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [guardado, setGuardado] = useState(false);
-  const [cantidad, setCantidad] = useState(0);
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [mostrarSolicitudes, setMostrarSolicitudes] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
 
   const [formulario, setFormulario] = useState({
     nombre: "",
@@ -67,19 +57,6 @@ export default function Home() {
     mensaje: "",
   });
 
-  useEffect(() => {
-    try {
-      const datos = localStorage.getItem("juanaAsbajeSolicitudes");
-      if (datos) {
-        const registros: Solicitud[] = JSON.parse(datos);
-        setSolicitudes(registros);
-        setCantidad(registros.length);
-      }
-    } catch {
-      console.warn("No fue posible leer las solicitudes locales.");
-    }
-  }, []);
-
   function actualizarCampo(
     campo: keyof typeof formulario,
     valor: string
@@ -88,28 +65,46 @@ export default function Home() {
       ...anterior,
       [campo]: valor,
     }));
+
     setGuardado(false);
+    setErrorEnvio("");
   }
 
-  function enviarSolicitud(evento: FormEvent<HTMLFormElement>) {
+  async function enviarSolicitud(
+    evento: FormEvent<HTMLFormElement>
+  ) {
     evento.preventDefault();
 
-    const nuevaSolicitud: Solicitud = {
-      ...formulario,
-      fecha: new Date().toLocaleString("es-MX"),
-    };
+    if (enviando) return;
+
+    setEnviando(true);
+    setGuardado(false);
+    setErrorEnvio("");
 
     try {
-      const registros = [nuevaSolicitud, ...solicitudes];
-
-      localStorage.setItem(
-        "juanaAsbajeSolicitudes",
-        JSON.stringify(registros)
+      await emailjs.send(
+        "service_6dtrehg",
+        "template_6ap3ug8",
+        {
+          nombre: formulario.nombre.trim(),
+          correo: formulario.correo.trim(),
+          telefono:
+            formulario.telefono.trim() || "No proporcionado",
+          nivel: formulario.nivel,
+          mensaje:
+            formulario.mensaje.trim() || "Sin mensaje adicional",
+        },
+        {
+          publicKey: "ptppZl_X41n3f2jFC",
+          limitRate: {
+            id: "portal-juana-asbaje-contacto",
+            throttle: 10000,
+          },
+        }
       );
 
-      setSolicitudes(registros);
-      setCantidad(registros.length);
       setGuardado(true);
+
       setFormulario({
         nombre: "",
         correo: "",
@@ -117,23 +112,14 @@ export default function Home() {
         nivel: "",
         mensaje: "",
       });
-    } catch {
-      alert(
-        "No se pudo guardar la solicitud. Verifica el almacenamiento del navegador."
+    } catch (error) {
+      console.error("Error al enviar la solicitud:", error);
+
+      setErrorEnvio(
+        "No fue posible enviar tu solicitud. Verifica la configuración de EmailJS e intenta nuevamente. También puedes comunicarte con el colegio por teléfono o WhatsApp."
       );
-    }
-  }
-
-  function borrarSolicitudes() {
-    const confirmar = window.confirm(
-      "¿Deseas eliminar todas las solicitudes guardadas en este navegador?"
-    );
-
-    if (confirmar) {
-      localStorage.removeItem("juanaAsbajeSolicitudes");
-      setSolicitudes([]);
-      setCantidad(0);
-      setMostrarSolicitudes(false);
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -151,10 +137,12 @@ export default function Home() {
               priority
               className="h-14 w-auto object-contain"
             />
+
             <span>
               <strong className="block text-sm font-extrabold text-blue-950 sm:text-base">
                 Colegio Juana de Asbaje
               </strong>
+
               <span className="text-xs text-slate-500">
                 Aprender · Crecer · Compartir
               </span>
@@ -166,20 +154,40 @@ export default function Home() {
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:hidden"
             onClick={() => setMenuAbierto(!menuAbierto)}
             aria-expanded={menuAbierto}
+            aria-label="Abrir o cerrar menú"
           >
             {menuAbierto ? "Cerrar ✕" : "Menú ☰"}
           </button>
 
           <nav className="hidden items-center gap-6 text-sm font-semibold md:flex">
-            <a className="hover:text-teal-700" href="#nosotros">Nosotros</a>
-            <a className="hover:text-teal-700" href="#oferta">Oferta educativa</a>
-            <a className="hover:text-teal-700" href="#actividades">Actividades</a>
-            <a className="hover:text-teal-700" href="#avisos">Avisos</a>
+            <a className="hover:text-teal-700" href="#nosotros">
+              Nosotros
+            </a>
+
+            <a className="hover:text-teal-700" href="#oferta">
+              Oferta educativa
+            </a>
+
+            <a className="hover:text-teal-700" href="#actividades">
+              Actividades
+            </a>
+
+            <a className="hover:text-teal-700" href="#avisos">
+              Avisos
+            </a>
+
             <a
               className="rounded-xl bg-blue-950 px-4 py-3 text-white hover:bg-teal-700"
               href="#contacto"
             >
               Solicitar informes
+            </a>
+
+            <a
+              className="rounded-xl border border-blue-950 px-4 py-3 text-blue-950 hover:bg-blue-950 hover:text-white"
+              href="/login"
+            >
+              Acceso al portal
             </a>
           </nav>
         </div>
@@ -192,6 +200,7 @@ export default function Home() {
               ["Actividades", "#actividades"],
               ["Avisos", "#avisos"],
               ["Contacto", "#contacto"],
+              ["Acceso al portal", "/login"],
             ].map(([texto, enlace]) => (
               <a
                 key={enlace}
@@ -234,6 +243,7 @@ export default function Home() {
               >
                 Conoce nuestro colegio
               </a>
+
               <a
                 href="#contacto"
                 className="rounded-xl border border-white/40 px-6 py-4 font-bold text-white hover:bg-white/10"
@@ -245,6 +255,7 @@ export default function Home() {
 
           <div className="relative mx-auto w-full max-w-md">
             <div className="absolute inset-5 rounded-full bg-teal-300/20 blur-3xl" />
+
             <div className="relative rounded-[2rem] border border-white/20 bg-white/10 p-8 text-center shadow-2xl backdrop-blur">
               <div className="mx-auto flex justify-center">
                 <Image
@@ -257,16 +268,27 @@ export default function Home() {
                 />
               </div>
 
-              <h2 className="mt-4 text-2xl font-black">¡Bienvenidos!</h2>
+              <h2 className="mt-4 text-2xl font-black">
+                ¡Bienvenidos!
+              </h2>
+
               <p className="mt-3 leading-7 text-blue-100">
                 Un espacio para descubrir talentos, desarrollar habilidades
                 y aprender juntos.
               </p>
 
-              <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-bold">
-                <div className="rounded-xl bg-white/10 p-3">🌱<br />Inicial</div>
-                <div className="rounded-xl bg-white/10 p-3">🧩<br />Preescolar</div>
-                <div className="rounded-xl bg-white/10 p-3">📚<br />Primaria</div>
+              <div className="mt-6 grid grid-cols-2 gap-3 text-center text-xs font-bold">
+                <div className="rounded-xl bg-white/10 p-3">
+                  🧩
+                  <br />
+                  Preescolar
+                </div>
+
+                <div className="rounded-xl bg-white/10 p-3">
+                  📚
+                  <br />
+                  Primaria
+                </div>
               </div>
             </div>
           </div>
@@ -280,19 +302,23 @@ export default function Home() {
             <span className="text-xs font-extrabold uppercase tracking-widest text-teal-700">
               Conoce nuestra comunidad
             </span>
+
             <h2 className="mt-3 text-3xl font-black text-blue-950 sm:text-4xl">
               Aprendizaje que va más allá del aula
             </h2>
+
             <p className="mt-5 leading-8 text-slate-600">
               En el Colegio Juana de Asbaje buscamos que cada estudiante
               desarrolle sus conocimientos, habilidades y valores en un
               ambiente de respeto, colaboración y confianza.
             </p>
+
             <p className="mt-4 leading-8 text-slate-600">
               Nuestra propuesta combina formación académica, idiomas,
               tecnología y actividades complementarias para acompañar
               diferentes formas de aprender y expresarse.
             </p>
+
             <a
               href="#contacto"
               className="mt-6 inline-flex rounded-xl bg-teal-700 px-5 py-3 font-bold text-white hover:bg-teal-800"
@@ -305,12 +331,14 @@ export default function Home() {
             <h3 className="text-xl font-extrabold text-blue-950">
               Lo que nos distingue
             </h3>
+
             <ul className="mt-6 space-y-4">
               {beneficios.map((beneficio) => (
                 <li key={beneficio} className="flex gap-3 leading-6">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-teal-100 font-black text-teal-800">
                     ✓
                   </span>
+
                   <span>{beneficio}</span>
                 </li>
               ))}
@@ -326,16 +354,18 @@ export default function Home() {
             <span className="text-xs font-extrabold uppercase tracking-widest text-teal-700">
               Nuestra oferta educativa
             </span>
+
             <h2 className="mt-3 text-3xl font-black text-blue-950 sm:text-4xl">
               Cada etapa importa
             </h2>
+
             <p className="mt-4 leading-7 text-slate-600">
               Acompañamos el crecimiento y los aprendizajes de niñas y niños
               en distintas etapas de su formación.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
             {oferta.map((nivel) => (
               <article
                 key={nivel.numero}
@@ -345,19 +375,24 @@ export default function Home() {
                   <span className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-3xl">
                     {nivel.icono}
                   </span>
+
                   <span className="text-3xl font-black text-slate-200">
                     {nivel.numero}
                   </span>
                 </div>
+
                 <p className="mt-6 text-xs font-bold uppercase tracking-wider text-teal-700">
                   {nivel.edad}
                 </p>
+
                 <h3 className="mt-2 text-xl font-extrabold text-blue-950">
                   {nivel.nombre}
                 </h3>
+
                 <p className="mt-4 leading-7 text-slate-600">
                   {nivel.descripcion}
                 </p>
+
                 <a
                   href="#contacto"
                   className="mt-6 inline-block font-bold text-teal-700 hover:text-blue-950"
@@ -377,9 +412,11 @@ export default function Home() {
             <span className="text-xs font-extrabold uppercase tracking-widest text-teal-700">
               Formación integral
             </span>
+
             <h2 className="mt-3 text-3xl font-black text-blue-950 sm:text-4xl">
               Talentos que merecen crecer
             </h2>
+
             <p className="mt-4 leading-7 text-slate-600">
               Actividades complementarias para descubrir intereses,
               fortalecer habilidades y enriquecer la experiencia escolar.
@@ -395,10 +432,12 @@ export default function Home() {
                 <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-slate-100 text-3xl">
                   {actividad.icono}
                 </span>
+
                 <div>
                   <h3 className="font-extrabold text-blue-950">
                     {actividad.nombre}
                   </h3>
+
                   <p className="mt-1 text-sm text-slate-500">
                     {actividad.detalle}
                   </p>
@@ -410,23 +449,30 @@ export default function Home() {
       </section>
 
       {/* AVISOS */}
-      <section id="avisos" className="scroll-mt-24 bg-blue-950 px-5 py-16 text-white">
+      <section
+        id="avisos"
+        className="scroll-mt-24 bg-blue-950 px-5 py-16 text-white"
+      >
         <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <span className="text-xs font-bold uppercase tracking-widest text-teal-200">
               Comunicación escolar
             </span>
+
             <h2 className="mt-3 text-3xl font-black">
               Avisos y fechas importantes
             </h2>
+
             <p className="mt-4 max-w-2xl leading-7 text-blue-100">
               Consulta aquí los próximos comunicados, actividades y fechas
               relevantes de nuestra comunidad escolar.
             </p>
+
             <p className="mt-3 text-sm text-blue-200">
               Próximamente: calendario escolar actualizado por la Dirección.
             </p>
           </div>
+
           <a
             href="#contacto"
             className="inline-flex justify-center rounded-xl bg-amber-400 px-6 py-4 font-extrabold text-blue-950 hover:bg-amber-300"
@@ -443,13 +489,15 @@ export default function Home() {
             <span className="text-xs font-extrabold uppercase tracking-widest text-teal-700">
               Estamos para atenderte
             </span>
+
             <h2 className="mt-3 text-3xl font-black text-blue-950 sm:text-4xl">
               Solicita información
             </h2>
+
             <p className="mt-5 leading-8 text-slate-600">
               Déjanos tus datos de contacto y señala el nivel educativo
-              de tu interés. En esta versión de prueba, la solicitud se
-              guardará solamente en este navegador.
+              de tu interés. Enviaremos tu solicitud a la Dirección del
+              Colegio Juana de Asbaje para que pueda atenderte.
             </p>
 
             <div className="mt-8 space-y-5">
@@ -457,8 +505,12 @@ export default function Home() {
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-teal-100 text-xl">
                   📍
                 </span>
+
                 <div>
-                  <h3 className="font-extrabold text-blue-950">Dirección</h3>
+                  <h3 className="font-extrabold text-blue-950">
+                    Dirección
+                  </h3>
+
                   <p className="mt-1 text-slate-600">
                     Galeana #35, Col. Centro, Tuxpan, Veracruz.
                   </p>
@@ -469,10 +521,12 @@ export default function Home() {
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-teal-100 text-xl">
                   🕒
                 </span>
+
                 <div>
                   <h3 className="font-extrabold text-blue-950">
                     Horario de atención
                   </h3>
+
                   <p className="mt-1 text-slate-600">
                     De 7:00 a 15:00 h. Confirma con el colegio la atención
                     administrativa vigente.
@@ -482,16 +536,41 @@ export default function Home() {
 
               <div className="flex gap-4">
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-teal-100 text-xl">
-                  📝
+                  ☎️
                 </span>
+
                 <div>
                   <h3 className="font-extrabold text-blue-950">
-                    Solicitudes de informes
+                    Teléfono de oficina
                   </h3>
-                  <p className="mt-1 text-slate-600">
-                    Registros de demostración guardados en este dispositivo:
-                    <strong> {cantidad}</strong>
-                  </p>
+
+                  <a
+                    href="tel:+527838342140"
+                    className="mt-1 inline-block font-semibold text-teal-700 hover:text-blue-950 hover:underline"
+                  >
+                    783 834 2140
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-green-100 text-xl">
+                  💬
+                </span>
+
+                <div>
+                  <h3 className="font-extrabold text-blue-950">
+                    WhatsApp
+                  </h3>
+
+                  <a
+                    href="https://wa.me/527831466939"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block font-semibold text-green-700 hover:text-green-900 hover:underline"
+                  >
+                    783 146 6939 · Enviar mensaje
+                  </a>
                 </div>
               </div>
             </div>
@@ -501,21 +580,29 @@ export default function Home() {
             <h3 className="text-xl font-extrabold text-blue-950">
               Formulario de contacto
             </h3>
+
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Completa los campos marcados como obligatorios.
             </p>
 
             <form onSubmit={enviarSolicitud} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="nombre" className="mb-2 block text-sm font-bold">
+                <label
+                  htmlFor="nombre"
+                  className="mb-2 block text-sm font-bold"
+                >
                   Nombre del padre, madre o tutor *
                 </label>
+
                 <input
                   id="nombre"
+                  name="nombre"
                   required
                   maxLength={100}
                   value={formulario.nombre}
-                  onChange={(e) => actualizarCampo("nombre", e.target.value)}
+                  onChange={(e) =>
+                    actualizarCampo("nombre", e.target.value)
+                  }
                   placeholder="Escribe tu nombre"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                 />
@@ -523,31 +610,45 @@ export default function Home() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="correo" className="mb-2 block text-sm font-bold">
+                  <label
+                    htmlFor="correo"
+                    className="mb-2 block text-sm font-bold"
+                  >
                     Correo electrónico *
                   </label>
+
                   <input
                     id="correo"
+                    name="correo"
                     type="email"
                     required
                     maxLength={150}
                     value={formulario.correo}
-                    onChange={(e) => actualizarCampo("correo", e.target.value)}
+                    onChange={(e) =>
+                      actualizarCampo("correo", e.target.value)
+                    }
                     placeholder="correo@ejemplo.com"
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="telefono" className="mb-2 block text-sm font-bold">
+                  <label
+                    htmlFor="telefono"
+                    className="mb-2 block text-sm font-bold"
+                  >
                     Teléfono
                   </label>
+
                   <input
                     id="telefono"
+                    name="telefono"
                     type="tel"
                     maxLength={20}
                     value={formulario.telefono}
-                    onChange={(e) => actualizarCampo("telefono", e.target.value)}
+                    onChange={(e) =>
+                      actualizarCampo("telefono", e.target.value)
+                    }
                     placeholder="Número de contacto"
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                   />
@@ -555,48 +656,69 @@ export default function Home() {
               </div>
 
               <div>
-                <label htmlFor="nivel" className="mb-2 block text-sm font-bold">
+                <label
+                  htmlFor="nivel"
+                  className="mb-2 block text-sm font-bold"
+                >
                   Nivel educativo de interés *
                 </label>
+
                 <select
                   id="nivel"
+                  name="nivel"
                   required
                   value={formulario.nivel}
-                  onChange={(e) => actualizarCampo("nivel", e.target.value)}
+                  onChange={(e) =>
+                    actualizarCampo("nivel", e.target.value)
+                  }
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                 >
                   <option value="">Selecciona un nivel</option>
+
                   {niveles.map((nivel) => (
-                    <option key={nivel} value={nivel}>{nivel}</option>
+                    <option key={nivel} value={nivel}>
+                      {nivel}
+                    </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label htmlFor="mensaje" className="mb-2 block text-sm font-bold">
+                <label
+                  htmlFor="mensaje"
+                  className="mb-2 block text-sm font-bold"
+                >
                   ¿Qué información necesitas?
                 </label>
+
                 <textarea
                   id="mensaje"
+                  name="mensaje"
                   rows={4}
                   maxLength={1000}
                   value={formulario.mensaje}
-                  onChange={(e) => actualizarCampo("mensaje", e.target.value)}
+                  onChange={(e) =>
+                    actualizarCampo("mensaje", e.target.value)
+                  }
                   placeholder="Escribe aquí tus dudas o comentarios..."
                   className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
                 />
               </div>
 
               <p className="text-xs leading-5 text-slate-500">
-                Versión de prueba: los datos se guardan en el almacenamiento
-                local de este navegador. No se envían al colegio.
+                Tus datos se utilizarán para atender tu solicitud de
+                informes educativos. Al enviar el formulario, se enviará
+                un correo a la Dirección del colegio.
               </p>
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-teal-700 px-5 py-4 font-extrabold text-white transition hover:bg-teal-800"
+                disabled={enviando}
+                className="w-full rounded-xl bg-teal-700 px-5 py-4 font-extrabold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Guardar solicitud de prueba
+                {enviando
+                  ? "Enviando solicitud..."
+                  : "Enviar solicitud de informes"}
               </button>
 
               {guardado && (
@@ -604,69 +726,21 @@ export default function Home() {
                   role="status"
                   className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-800"
                 >
-                  ¡Solicitud guardada en este navegador! Recuerda que todavía
-                  no ha sido enviada a la Dirección.
+                  ¡Tu solicitud se envió correctamente! La Dirección
+                  del colegio podrá recibir tu mensaje por correo
+                  electrónico.
+                </div>
+              )}
+
+              {errorEnvio && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800"
+                >
+                  {errorEnvio}
                 </div>
               )}
             </form>
-
-            <div className="mt-6 border-t border-slate-200 pt-5">
-              <button
-                type="button"
-                onClick={() => setMostrarSolicitudes(!mostrarSolicitudes)}
-                className="font-bold text-teal-800 hover:underline"
-              >
-                {mostrarSolicitudes ? "Ocultar solicitudes" : "Ver solicitudes de prueba"}
-                {" "}({cantidad})
-              </button>
-
-              {mostrarSolicitudes && (
-                <div className="mt-4 space-y-3">
-                  {solicitudes.length === 0 ? (
-                    <p className="text-sm text-slate-500">
-                      Todavía no hay solicitudes guardadas.
-                    </p>
-                  ) : (
-                    solicitudes.map((solicitud, indice) => (
-                      <article
-                        key={`${solicitud.fecha}-${indice}`}
-                        className="rounded-xl border border-slate-200 p-4 text-sm"
-                      >
-                        <p className="font-extrabold text-blue-950">
-                          {solicitud.nombre}
-                        </p>
-                        <p className="mt-1 text-slate-600">
-                          {solicitud.nivel} · {solicitud.correo}
-                        </p>
-                        {solicitud.telefono && (
-                          <p className="mt-1 text-slate-600">
-                            Teléfono: {solicitud.telefono}
-                          </p>
-                        )}
-                        {solicitud.mensaje && (
-                          <p className="mt-2 whitespace-pre-wrap text-slate-600">
-                            {solicitud.mensaje}
-                          </p>
-                        )}
-                        <p className="mt-2 text-xs text-slate-400">
-                          {solicitud.fecha}
-                        </p>
-                      </article>
-                    ))
-                  )}
-
-                  {solicitudes.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={borrarSolicitudes}
-                      className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700 hover:bg-red-50"
-                    >
-                      Borrar todas las solicitudes
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </section>
@@ -682,8 +756,12 @@ export default function Home() {
               height={64}
               className="h-12 w-12 object-contain"
             />
+
             <div>
-              <strong className="block">Colegio Juana de Asbaje</strong>
+              <strong className="block">
+                Colegio Juana de Asbaje
+              </strong>
+
               <span className="mt-1 block text-sm text-slate-400">
                 Aprender · Crecer · Compartir
               </span>
@@ -692,6 +770,29 @@ export default function Home() {
 
           <div className="text-sm leading-7 text-slate-400 sm:text-right">
             <p>Galeana #35, Col. Centro, Tuxpan, Veracruz.</p>
+
+            <p>
+              Oficina:{" "}
+              <a
+                href="tel:+527838342140"
+                className="hover:text-white hover:underline"
+              >
+                783 834 2140
+              </a>
+            </p>
+
+            <p>
+              WhatsApp:{" "}
+              <a
+                href="https://wa.me/527831466939"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white hover:underline"
+              >
+                783 146 6939
+              </a>
+            </p>
+
             <p>© 2026 Colegio Juana de Asbaje.</p>
             <p>Portal institucional en desarrollo.</p>
           </div>
